@@ -1,17 +1,66 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Reflection.Emit;
+using TrainComponentManager.Data.Models;
 
-namespace TrainComponentManager.Data
+namespace TrainComponentManager.Data.Repositories
 {
     public class AppDbContext : DbContext
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AppDbContext"/> class.
+        /// </summary>
+        /// <param name="options">The options.</param>
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
+        /// <summary>
+        /// Gets the train components.
+        /// </summary>
+        /// <value>
+        /// The train components.
+        /// </value>
         public DbSet<TrainComponent> TrainComponents => Set<TrainComponent>();
 
+        /// <summary>
+        /// Override this method to further configure the model that was discovered by convention from the entity types
+        /// exposed in <see cref="T:Microsoft.EntityFrameworkCore.DbSet`1" /> properties on your derived context. The resulting model may be cached
+        /// and re-used for subsequent instances of your derived context.
+        /// </summary>
+        /// <param name="modelBuilder">The builder being used to construct the model for this context. Databases (and other extensions) typically
+        /// define extension methods on this object that allow you to configure aspects of the model that are specific
+        /// to a given database.</param>
+        /// <remarks>
+        /// <para>
+        /// If a model is explicitly set on the options for this context (via <see cref="M:Microsoft.EntityFrameworkCore.DbContextOptionsBuilder.UseModel(Microsoft.EntityFrameworkCore.Metadata.IModel)" />)
+        /// then this method will not be run. However, it will still run when creating a compiled model.
+        /// </para>
+        /// <para>
+        /// See <see href="https://aka.ms/efcore-docs-modeling">Modeling entity types and relationships</see> for more information and
+        /// examples.
+        /// </para>
+        /// </remarks>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // Убедимся, что UniqueNumber уникален и индексирован для быстрого поиска
+            modelBuilder.Entity<TrainComponent>()
+                .HasIndex(tc => tc.UniqueNumber)
+                .IsUnique(); // Если UniqueNumber должен быть уникальным
+
+            // Индекс для Name, если по нему часто ищут
+            modelBuilder.Entity<TrainComponent>()
+                .HasIndex(tc => tc.Name);
+
+            // Если вы будете искать по CanAssignQuantity часто (например, чтобы выбрать все, что можно назначить количество)
+            modelBuilder.Entity<TrainComponent>()
+                .HasIndex(tc => tc.CanAssignQuantity);
+
+            // Опционально: если Name и UniqueNumber являются обязательными
+            modelBuilder.Entity<TrainComponent>()
+                .Property(tc => tc.Name)
+                .IsRequired();
+
+            modelBuilder.Entity<TrainComponent>()
+                .Property(tc => tc.UniqueNumber)
+                .IsRequired();
+
             modelBuilder.Entity<TrainComponent>().HasData(
                 new TrainComponent { Id = 1, Name = "Engine", UniqueNumber = "ENG123", CanAssignQuantity = false },
                 new TrainComponent { Id = 2, Name = "Passenger Car", UniqueNumber = "PAS456", CanAssignQuantity = false },

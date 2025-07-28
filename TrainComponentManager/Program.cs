@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TrainComponentManager.Components;
-using TrainComponentManager.Data;
+using TrainComponentManager.Data.Models;
+using TrainComponentManager.Data.Repositories;
 
 namespace TrainComponentManager
 {
@@ -18,6 +19,8 @@ namespace TrainComponentManager
 
             builder.Services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+            builder.Services.AddScoped<IRepository<TrainComponent>, TrainComponentRepository>();
 
             builder.Services.AddHttpClient("LocalApi", client =>
             {

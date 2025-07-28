@@ -1,49 +1,133 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using TrainComponentManager.Data;
+using TrainComponentManager.Data.Models;
+using TrainComponentManager.Data.Repositories;
 
-namespace TrainComponentManager.Controllers
+namespace TrainComponentManager.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class TrainComponentsController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class TrainComponentsController : ControllerBase
+    private readonly IRepository<TrainComponent> _repository;
+
+    public TrainComponentsController(IRepository<TrainComponent> repository)
     {
-        private readonly AppDbContext _context;
+        this._repository = repository;
+    }
 
-        public TrainComponentsController(AppDbContext context)
+    /// <summary>
+    /// Gets all.
+    /// </summary>
+    /// <returns></returns>
+    [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(IEnumerable<TrainComponent>))]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<IEnumerable<TrainComponent>>> GetAll([FromQuery] string? searchTerm = null)
+    {
+        try
         {
-            _context = context;
+            IQueryable<TrainComponent> query = _repository.GetAllQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                query = query.Where(tc => tc.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                                          tc.UniqueNumber.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+            }
+
+            var trainComponents = await query.ToListAsync();
+
+            return Ok(trainComponents);
         }
-
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
+        catch (Exception ex)
         {
-            var result = await _context.TrainComponents.ToListAsync();
-
-            return Ok(result);
-        }
-
-        [HttpGet("{id}")]
-        public async Task<IActionResult> Get(int id)
-        {
-            var item = await _context.TrainComponents.FindAsync(id);
-            return item == null ? NotFound() : Ok(item);
-        }
-
-        [HttpPut("{id}/quantity")]
-        public async Task<IActionResult> UpdateQuantity(int id, [FromBody] int quantity)
-        {
-            if (quantity <= 0)
-                return BadRequest("Quantity must be a positive integer.");
-
-            var item = await _context.TrainComponents.FindAsync(id);
-            if (item == null) return NotFound();
-            if (!item.CanAssignQuantity)
-                return BadRequest("Quantity cannot be assigned to this component.");
-
-            item.Quantity = quantity;
-            await _context.SaveChangesAsync();
-            return NoContent();
+            Console.WriteLine($"Error retrieving all components: {ex.Message}");
+            return StatusCode(StatusCodes.Status500InternalServerError, "Error retrieving data from the database.");
         }
     }
+
+    /// <summary>
+    /// Gets the specified identifier.
+    /// </summary>
+    /// <param name="id">The identifier.</param>
+    /// <returns></returns>
+    [HttpGet("{id}")]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(TrainComponent))]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<TrainComponent>> Get(int id)
+    {
+        try
+        {
+            var trainComponent = await this._repository.FindById(id);
+
+            return trainComponent == null ? (ActionResult<TrainComponent>)this.NotFound($"Train component with {id} wasn't found.") : (ActionResult<TrainComponent>)this.Ok(trainComponent);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error retrieving train component {id}: {ex.Message}");
+            return this.StatusCode(StatusCodes.Status500InternalServerError, "Error retrieving data from the database.");
+        }
+    }
+
+    /// <summary>
+    /// Updates the quantity.
+    /// </summary>
+    /// <param name="id">The identifier.</param>
+    /// <param name="quantity">The quantity.</param>
+    /// <returns></returns>
+    [HttpPut("{id}/quantity")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ValidationProblemDetails))]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> UpdateQuantity(int id, [FromBody] int quantity)
+    {
+        if (quantity <= 0)
+            return BadRequest("Quantity must be a positive integer.");
+
+        if (!this.ModelState.IsValid)
+        {
+            return this.BadRequest(this.ModelState);
+        }
+
+        try
+        {
+
+            var item = await this._repository.FindById(id);
+
+            if (item == null)
+            {
+                return NotFound($"Train component with {id} wasn't found.");
+            }
+
+            if (!item.CanAssignQuantity)
+            {
+                return BadRequest("Quantity cannot be assigned to this component.");
+            }
+
+            item.Quantity = quantity;
+
+            await this._repository.Update(item);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return this.NotFound(ex.Message);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (await this._repository.FindById(id) == null)
+            {
+                return this.NotFound($"Component with ID {id} not found (may have been deleted).");
+            }
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating component with ID {id}: {ex.Message}");
+            return this.StatusCode(StatusCodes.Status500InternalServerError, "Error saving data to database.");
+        }
+    }
+
 }
