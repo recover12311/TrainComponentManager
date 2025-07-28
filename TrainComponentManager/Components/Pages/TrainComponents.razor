@@ -1,0 +1,145 @@
+﻿@page "/components"
+@using TrainComponentManager.Models
+@using System.Net.Http.Json
+@inject IHttpClientFactory HttpClientFactory
+@inject IJSRuntime JS // Для вызовов JavaScript, например, alert
+@rendermode InteractiveServer // Явно указываем режим рендеринга для ясности
+
+<h3>Управление компонентами поезда</h3>
+
+<input @bind="searchTerm" @bind:event="oninput" placeholder="🔍 Поиск..." class="form-control mb-3" />
+
+@if (errorMessage != null) // Добавлено для отображения ошибок прямо на странице
+{
+    <div class="alert alert-danger" role="alert">
+        <strong>Ошибка:</strong> @errorMessage
+    </div>
+}
+
+@if (filteredComponents == null)
+{
+    <p><em>Загрузка...</em></p>
+}
+else if (!filteredComponents.Any())
+{
+    <p class="alert alert-info">Компоненты не найдены.</p>
+}
+else
+{
+    <table class="table table-striped table-bordered table-sm">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Название</th>
+                <th>Уникальный номер</th>
+                <th>Количество</th>
+                <th>Действие</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in filteredComponents)
+            {
+                <tr>
+                    <td>@item.Id</td>
+                    <td>@item.Name</td>
+                    <td>@item.UniqueNumber</td>
+                    <td>@(item.CanAssignQuantity? item.Quantity?.ToString() ?? "—" : "н/д")</td>
+                    <td>
+                        @if (item.CanAssignQuantity)
+                        {
+                            <div class="d-flex align-items-center">
+                                <input type="number" class="form-control form-control-sm w-auto me-2" @bind="item.NewQuantity" min="0" />
+                                <button class="btn btn-success btn-sm" @onclick="() => UpdateQuantity(item)">Обновить</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <span class="text-muted">Нельзя</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<TrainComponentDto> components = new();
+    private List<TrainComponentDto> filteredComponents;
+    private string searchTerm = "";
+    private string errorMessage; // Добавлено поле для хранения сообщения об ошибке
+
+    private HttpClient _httpClient;
+
+    // Метод вызывается при инициализации компонента
+    protected override async Task OnInitializedAsync()
+    {
+        _httpClient = HttpClientFactory.CreateClient("LocalApi");
+
+        try
+        {
+            components = await _httpClient.GetFromJsonAsync<List<TrainComponentDto>>("api/traincomponents") ?? new();
+            foreach (var component in components)
+            {
+                component.NewQuantity = component.Quantity;
+            }
+            Filter();
+        }
+        catch (HttpRequestException ex)
+        {
+            // Сохраняем сообщение об ошибке, но не вызываем JS здесь
+            errorMessage = $"Не удалось загрузить компоненты: {ex.Message}. Проверьте соединение с API.";
+            components = new();
+            Filter();
+        }
+        // !!! ВАЖНО !!! JS.InvokeVoidAsync НЕ ДОЛЖЕН БЫТЬ В OnInitializedAsync
+        // потому что он может быть вызван во время предварительного рендеринга на сервере.
+    }
+
+    // Метод для фильтрации списка компонентов
+    private void Filter()
+    {
+        if (components == null)
+        {
+            filteredComponents = new();
+            return;
+        }
+
+        filteredComponents = components
+            .Where(c => string.IsNullOrWhiteSpace(searchTerm) ||
+                        c.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                        c.UniqueNumber.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    // Метод для обновления количества компонента
+    private async Task UpdateQuantity(TrainComponentDto item)
+    {
+        if (item.NewQuantity < 0)
+        {
+            // Здесь JS-вызов безопасен, потому что UpdateQuantity вызывается после интерактивного действия пользователя
+            await JS.InvokeVoidAsync("alert", "Количество не может быть отрицательным.");
+            return;
+        }
+
+        try
+        {
+            var response = await _httpClient.PutAsJsonAsync($"api/traincomponents/{item.Id}/quantity", item.NewQuantity);
+
+            if (response.IsSuccessStatusCode)
+            {
+                item.Quantity = item.NewQuantity;
+                await JS.InvokeVoidAsync("alert", $"Количество для {item.Name} успешно обновлено до {item.Quantity}.");
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await JS.InvokeVoidAsync("alert", $"Ошибка обновления количества: {response.StatusCode} - {error}");
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Произошла ошибка сети при обновлении: {ex.Message}");
+        }
+    }
+}
