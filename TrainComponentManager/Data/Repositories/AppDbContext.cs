@@ -39,20 +39,16 @@ namespace TrainComponentManager.Data.Repositories
         /// </remarks>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Убедимся, что UniqueNumber уникален и индексирован для быстрого поиска
             modelBuilder.Entity<TrainComponent>()
                 .HasIndex(tc => tc.UniqueNumber)
-                .IsUnique(); // Если UniqueNumber должен быть уникальным
+                .IsUnique();
 
-            // Индекс для Name, если по нему часто ищут
             modelBuilder.Entity<TrainComponent>()
                 .HasIndex(tc => tc.Name);
 
-            // Если вы будете искать по CanAssignQuantity часто (например, чтобы выбрать все, что можно назначить количество)
             modelBuilder.Entity<TrainComponent>()
                 .HasIndex(tc => tc.CanAssignQuantity);
 
-            // Опционально: если Name и UniqueNumber являются обязательными
             modelBuilder.Entity<TrainComponent>()
                 .Property(tc => tc.Name)
                 .IsRequired();

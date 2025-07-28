@@ -32,9 +32,9 @@ public class TrainComponentRepository : IRepository<TrainComponent>
     /// Gets all queryable.
     /// </summary>
     /// <returns></returns>
-    public Task<IQueryable<TrainComponent>> GetAllQueryable()
+    public IQueryable<TrainComponent> GetAllQueryable()
     {
-        return Task.FromResult(_context.TrainComponents.AsQueryable());
+        return _context.TrainComponents.AsQueryable();
     }
 
     /// <summary>

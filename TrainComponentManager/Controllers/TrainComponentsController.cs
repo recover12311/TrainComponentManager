@@ -10,10 +10,12 @@ namespace TrainComponentManager.Controllers;
 public class TrainComponentsController : ControllerBase
 {
     private readonly IRepository<TrainComponent> _repository;
+    private readonly ILogger<TrainComponentsController> _logger;
 
-    public TrainComponentsController(IRepository<TrainComponent> repository)
+    public TrainComponentsController(IRepository<TrainComponent> repository, ILogger<TrainComponentsController> logger)
     {
         this._repository = repository;
+        this._logger = logger;
     }
 
     /// <summary>
@@ -31,8 +33,10 @@ public class TrainComponentsController : ControllerBase
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
-                query = query.Where(tc => tc.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                                          tc.UniqueNumber.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+                string lowerSearchTerm = searchTerm.ToLower();
+
+                query = query.Where(tc => tc.Name.ToLower().Contains(lowerSearchTerm) ||
+                                          tc.UniqueNumber.ToLower().Contains(lowerSearchTerm));
             }
 
             var trainComponents = await query.ToListAsync();
@@ -41,7 +45,7 @@ public class TrainComponentsController : ControllerBase
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error retrieving all components: {ex.Message}");
+            this._logger.LogError(ex, $"Error retrieving all components.");
             return StatusCode(StatusCodes.Status500InternalServerError, "Error retrieving data from the database.");
         }
     }
@@ -65,7 +69,7 @@ public class TrainComponentsController : ControllerBase
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error retrieving train component {id}: {ex.Message}");
+            this._logger.LogError(ex, $"Error retrieving train component {id}.");
             return this.StatusCode(StatusCodes.Status500InternalServerError, "Error retrieving data from the database.");
         }
     }
@@ -83,8 +87,10 @@ public class TrainComponentsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> UpdateQuantity(int id, [FromBody] int quantity)
     {
-        if (quantity <= 0)
+        if (quantity < 1)
+        {
             return BadRequest("Quantity must be a positive integer.");
+        }
 
         if (!this.ModelState.IsValid)
         {
@@ -93,7 +99,6 @@ public class TrainComponentsController : ControllerBase
 
         try
         {
-
             var item = await this._repository.FindById(id);
 
             if (item == null)
@@ -111,10 +116,6 @@ public class TrainComponentsController : ControllerBase
             await this._repository.Update(item);
             return NoContent();
         }
-        catch (KeyNotFoundException ex)
-        {
-            return this.NotFound(ex.Message);
-        }
         catch (DbUpdateConcurrencyException)
         {
             if (await this._repository.FindById(id) == null)
@@ -125,7 +126,7 @@ public class TrainComponentsController : ControllerBase
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error updating component with ID {id}: {ex.Message}");
+            this._logger.LogError(ex, $"Error updating component with ID {id}.");
             return this.StatusCode(StatusCodes.Status500InternalServerError, "Error saving data to database.");
         }
     }
