@@ -19,6 +19,7 @@ namespace TrainComponentManager.Data.Models
         /// The name.
         /// </value>
         [Required]
+        [StringLength(100, ErrorMessage = "Component Name cannot exceed 100 characters.")]
         public string Name { get; set; } = string.Empty;
 
         /// <summary>
@@ -28,6 +29,7 @@ namespace TrainComponentManager.Data.Models
         /// The unique number.
         /// </value>
         [Required]
+        [StringLength(50, ErrorMessage = "Unique Number cannot exceed 50 characters.")]
         public string UniqueNumber { get; set; } = string.Empty;
 
         /// <summary>

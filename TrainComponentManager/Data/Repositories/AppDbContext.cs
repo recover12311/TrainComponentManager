@@ -47,9 +47,6 @@ namespace TrainComponentManager.Data.Repositories
                 .HasIndex(tc => tc.Name);
 
             modelBuilder.Entity<TrainComponent>()
-                .HasIndex(tc => tc.CanAssignQuantity);
-
-            modelBuilder.Entity<TrainComponent>()
                 .Property(tc => tc.Name)
                 .IsRequired();
 

@@ -16,7 +16,7 @@ public class TrainComponentRepository : IRepository<TrainComponent>
     /// <param name="context">The context.</param>
     public TrainComponentRepository(AppDbContext context)
     {
-        _context = context;
+        this._context = context;
     }
 
     /// <summary>
@@ -25,7 +25,7 @@ public class TrainComponentRepository : IRepository<TrainComponent>
     /// <returns></returns>
     public async Task<IEnumerable<TrainComponent>> GetAll()
     {
-        return await _context.TrainComponents.ToListAsync();
+        return await this._context.TrainComponents.ToListAsync();
     }
 
     /// <summary>
@@ -34,7 +34,7 @@ public class TrainComponentRepository : IRepository<TrainComponent>
     /// <returns></returns>
     public IQueryable<TrainComponent> GetAllQueryable()
     {
-        return _context.TrainComponents.AsQueryable();
+        return this._context.TrainComponents.AsQueryable();
     }
 
     /// <summary>
@@ -42,31 +42,39 @@ public class TrainComponentRepository : IRepository<TrainComponent>
     /// </summary>
     /// <param name="entity">The entity.</param>
     /// <exception cref="System.ArgumentNullException">entity - Entity can't be null.</exception>
-    public async Task Add(TrainComponent entity)
+    public async Task<bool> Add(TrainComponent entity)
     {
         if (entity == null)
         {
-            throw new ArgumentNullException(nameof(entity), "Entity can't be null.");
+            return false;
         }
 
-        await _context.TrainComponents.AddAsync(entity);
-        await _context.SaveChangesAsync();
+        await this._context.TrainComponents.AddAsync(entity);
+
+        await this._context.SaveChangesAsync();
+
+        return true;
     }
 
     /// <summary>
     /// Deletes the specified entity.
     /// </summary>
-    /// <param name="entity">The entity.</param>
+    /// <param name="id"></param>
     /// <exception cref="System.ArgumentNullException">entity - Entity can't be null.</exception>
-    public async Task Delete(TrainComponent entity)
+    public async Task<bool> Delete(int id)
     {
+        var entity = await this._context.TrainComponents.FindAsync(id);
+
         if (entity == null)
         {
-            throw new ArgumentNullException(nameof(entity), "Entity can't be null.");
+            return false;
         }
 
-        _context.TrainComponents.Remove(entity);
-        await _context.SaveChangesAsync();
+        this._context.TrainComponents.Remove(entity);
+
+        await this._context.SaveChangesAsync();
+
+        return true;
     }
 
     /// <summary>
@@ -74,15 +82,18 @@ public class TrainComponentRepository : IRepository<TrainComponent>
     /// </summary>
     /// <param name="entity">The entity.</param>
     /// <exception cref="System.ArgumentNullException">entity - Entity can't be null.</exception>
-    public async Task Update(TrainComponent entity)
+    public async Task<bool> Update(TrainComponent entity)
     {
         if (entity == null)
         {
-            throw new ArgumentNullException(nameof(entity), "Entity can't be null.");
+            return false;
         }
 
-        _context.TrainComponents.Update(entity);
-        await _context.SaveChangesAsync();
+        this._context.TrainComponents.Update(entity);
+
+        await this._context.SaveChangesAsync();
+
+        return true;
     }
 
     /// <summary>
@@ -90,8 +101,8 @@ public class TrainComponentRepository : IRepository<TrainComponent>
     /// </summary>
     /// <param name="Id">The identifier.</param>
     /// <returns></returns>
-    public async Task<TrainComponent?> FindById(int Id)
+    public async Task<TrainComponent?> FindById(int id)
     {
-        return await this._context.TrainComponents.FindAsync(Id);
+        return await this._context.TrainComponents.FindAsync(id);
     }
 }
