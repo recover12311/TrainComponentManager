@@ -19,6 +19,7 @@ public class TrainComponentsController : ControllerBase
     private readonly IMemoryCache _cache;
     private static CancellationTokenSource _cacheCancellationTokenSource = new CancellationTokenSource();
     private const string TrainComponentsCachePrefix = "TrainComponents_";
+    private static readonly TimeSpan CacheExpirationDuration = TimeSpan.FromMinutes(1);
 
     #endregion
 
@@ -27,8 +28,8 @@ public class TrainComponentsController : ControllerBase
     public TrainComponentsController(IRepository<TrainComponent> repository, ILogger<TrainComponentsController> logger, IMemoryCache cache)
     {
         this._repository = repository ?? throw new ArgumentNullException(nameof(repository), "Parametr 'repository' can't be null.");
-        this._logger = logger ?? throw new ArgumentNullException(nameof(logger), "Parametr 'logger' can't be null."); ;
-        this._cache = cache ?? throw new ArgumentNullException(nameof(cache), "Parametr 'cache' can't be null."); ;
+        this._logger = logger ?? throw new ArgumentNullException(nameof(logger), "Parametr 'logger' can't be null.");
+        this._cache = cache ?? throw new ArgumentNullException(nameof(cache), "Parametr 'cache' can't be null.");
     }
 
     #endregion
@@ -92,7 +93,7 @@ public class TrainComponentsController : ControllerBase
             };
 
             var cacheEntryOptions = new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(TimeSpan.FromMinutes(1))
+                .SetAbsoluteExpiration(CacheExpirationDuration)
                 .AddExpirationToken(new CancellationChangeToken(_cacheCancellationTokenSource.Token));
 
             _cache.Set(cacheKey, paginatedResult, cacheEntryOptions);
@@ -308,7 +309,9 @@ public class TrainComponentsController : ControllerBase
     /// </summary>
     private void InvalidateTrainComponentsCache()
     {
+        _logger.LogInformation("Invalidation train components cache.");
         _cacheCancellationTokenSource.Cancel();
+        _cacheCancellationTokenSource.Dispose();
         _cacheCancellationTokenSource = new CancellationTokenSource();
     }
 
