@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Primitives;
 using TrainComponentManager.Data.DTO;
 using TrainComponentManager.Data.Models;
 using TrainComponentManager.Data.Repositories;
@@ -10,14 +12,28 @@ namespace TrainComponentManager.Controllers;
 [Route("api/[controller]")]
 public class TrainComponentsController : ControllerBase
 {
+    #region Properties
+
     private readonly IRepository<TrainComponent> _repository;
     private readonly ILogger<TrainComponentsController> _logger;
+    private readonly IMemoryCache _cache;
+    private static CancellationTokenSource _cacheCancellationTokenSource = new CancellationTokenSource();
+    private const string TrainComponentsCachePrefix = "TrainComponents_";
 
-    public TrainComponentsController(IRepository<TrainComponent> repository, ILogger<TrainComponentsController> logger)
+    #endregion
+
+    #region c'tor
+
+    public TrainComponentsController(IRepository<TrainComponent> repository, ILogger<TrainComponentsController> logger, IMemoryCache cache)
     {
-        this._repository = repository;
-        this._logger = logger;
+        this._repository = repository ?? throw new ArgumentNullException(nameof(repository), "Parametr 'repository' can't be null.");
+        this._logger = logger ?? throw new ArgumentNullException(nameof(logger), "Parametr 'logger' can't be null."); ;
+        this._cache = cache ?? throw new ArgumentNullException(nameof(cache), "Parametr 'cache' can't be null."); ;
     }
+
+    #endregion
+
+    #region Public
 
     /// <summary>
     /// Gets all.
@@ -33,6 +49,13 @@ public class TrainComponentsController : ControllerBase
     {
         try
         {
+            var cacheKey = $"{TrainComponentsCachePrefix}{searchTerm}_{pageNumber}_{pageSize}";
+
+            if (_cache.TryGetValue(cacheKey, out PaginatedResult<TrainComponentDto>? cachedResult))
+            {
+                return Ok(cachedResult);
+            }
+
             var query = _repository.GetAllQueryable();
 
             if (!string.IsNullOrWhiteSpace(searchTerm))
@@ -67,6 +90,12 @@ public class TrainComponentsController : ControllerBase
                 PageNumber = pageNumber,
                 PageSize = pageSize
             };
+
+            var cacheEntryOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(1))
+                .AddExpirationToken(new CancellationChangeToken(_cacheCancellationTokenSource.Token));
+
+            _cache.Set(cacheKey, paginatedResult, cacheEntryOptions);
 
             return Ok(paginatedResult);
         }
@@ -141,6 +170,9 @@ public class TrainComponentsController : ControllerBase
             item.Quantity = quantity;
 
             await this._repository.Update(item);
+
+            this.InvalidateTrainComponentsCache();
+
             return NoContent();
         }
         catch (DbUpdateConcurrencyException ex)
@@ -203,6 +235,8 @@ public class TrainComponentsController : ControllerBase
         {
             await _repository.Add(newComponent);
 
+            this.InvalidateTrainComponentsCache();
+
             return CreatedAtAction(nameof(Get), new { id = newComponent.Id }, newComponent);
         }
         catch (DbUpdateException ex)
@@ -244,6 +278,8 @@ public class TrainComponentsController : ControllerBase
                 return NotFound($"Train component with ID {id} not found.");
             }
 
+            this.InvalidateTrainComponentsCache();
+
             return NoContent();
         }
         catch (DbUpdateException ex)
@@ -263,4 +299,18 @@ public class TrainComponentsController : ControllerBase
         }
     }
 
+    #endregion
+
+    #region Private
+
+    /// <summary>
+    /// Invalidates the train components cache.
+    /// </summary>
+    private void InvalidateTrainComponentsCache()
+    {
+        _cacheCancellationTokenSource.Cancel();
+        _cacheCancellationTokenSource = new CancellationTokenSource();
+    }
+
+    #endregion
 }

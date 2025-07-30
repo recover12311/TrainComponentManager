@@ -41,7 +41,7 @@ public class TrainComponentRepository : IRepository<TrainComponent>
     /// Adds the specified entity.
     /// </summary>
     /// <param name="entity">The entity.</param>
-    /// <exception cref="System.ArgumentNullException">entity - Entity can't be null.</exception>
+    /// <returns></returns>
     public async Task<bool> Add(TrainComponent entity)
     {
         if (entity == null)
@@ -60,7 +60,7 @@ public class TrainComponentRepository : IRepository<TrainComponent>
     /// Deletes the specified entity.
     /// </summary>
     /// <param name="id"></param>
-    /// <exception cref="System.ArgumentNullException">entity - Entity can't be null.</exception>
+    /// <returns></returns>
     public async Task<bool> Delete(int id)
     {
         var entity = await this._context.TrainComponents.FindAsync(id);
@@ -81,7 +81,7 @@ public class TrainComponentRepository : IRepository<TrainComponent>
     /// Updates the specified entity.
     /// </summary>
     /// <param name="entity">The entity.</param>
-    /// <exception cref="System.ArgumentNullException">entity - Entity can't be null.</exception>
+    /// <returns></returns>
     public async Task<bool> Update(TrainComponent entity)
     {
         if (entity == null)

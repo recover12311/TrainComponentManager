@@ -17,20 +17,21 @@
 
 @if (successMessage != null)
 {
-    <div class="alert alert-success" role="alert">
-        <strong>Success:</strong> @successMessage
-    </div>
-    @code {
-        protected override async Task OnAfterRenderAsync(bool firstRender)
+<div class="alert alert-success" role="alert">
+    <strong>Success:</strong> @successMessage
+</div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (successMessage != null && !string.IsNullOrEmpty(successMessage))
         {
-            if (successMessage != null && !string.IsNullOrEmpty(successMessage))
-            {
-                await Task.Delay(5000); // Display message for 5 seconds
-                successMessage = null;
-                StateHasChanged();
-            }
+            await Task.Delay(5000); // Display message for 5 seconds
+            successMessage = null;
+            StateHasChanged();
         }
     }
+}
 }
 
 <input value="@searchTerm" @oninput="OnSearchInput" placeholder="🔍 Search..." class="form-control mb-3" />
@@ -62,7 +63,7 @@
                     </div>
                 </div>
             </div>
-            
+
             @if (newComponentDto.CanAssignQuantity)
             {
                 <div class="row g-3 mt-2">
@@ -80,7 +81,7 @@
             {
                 <div class="row g-3 mt-2">
                     <div class="col-12 d-flex justify-content-end">
-                         <button type="submit" class="btn btn-primary">Add Component</button>
+                        <button type="submit" class="btn btn-primary">Add Component</button>
                     </div>
                 </div>
             }
@@ -105,7 +106,7 @@ else
                 <th>Name</th>
                 <th>Unique number</th>
                 <th>Quantity</th>
-                <th style="width: 150px;">Action</th> 
+                <th style="width: 150px;">Action</th>
             </tr>
         </thead>
         <tbody>
@@ -121,7 +122,7 @@ else
                             @if (item.CanAssignQuantity)
                             {
                                 <div class="input-group input-group-sm">
-                                    <input type="number" class="form-control" @bind="item.NewQuantity" min="0"/>
+                                    <input type="number" class="form-control" @bind="item.NewQuantity" min="0" />
                                     <button class="btn btn-success" @onclick="() => UpdateQuantity(item)">Set</button>
                                 </div>
                             }
@@ -160,6 +161,8 @@ else
 }
 
 @code {
+    #region Prerties
+
     private List<TrainComponentDto> components = new();
     private string searchTerm = "";
     private string? errorMessage;
@@ -172,9 +175,22 @@ else
     private CreateTrainComponentDto newComponentDto = new();
 
     private int currentPage = 1;
-    private int pageSize = 10; 
+    private int pageSize = 10;
     private int totalCount = 0;
     private int totalPages = 1;
+
+    #endregion
+
+    #region Public
+
+    public void Dispose()
+    {
+        _debounceTimer?.Dispose();
+    }
+
+    #endregion
+
+    #region Protected
 
     protected override async Task OnInitializedAsync()
     {
@@ -194,6 +210,10 @@ else
 
         await LoadComponents();
     }
+
+    #endregion
+
+    #region Private
 
     private async Task LoadComponents()
     {
@@ -244,7 +264,7 @@ else
     private void OnSearchInput(ChangeEventArgs e)
     {
         searchTerm = e.Value?.ToString() ?? "";
-        currentPage = 1; 
+        currentPage = 1;
         _debounceTimer.Change(DEBOUNCE_DELAY_MS, Timeout.Infinite); // Reset the timer for debounce
     }
 
@@ -289,11 +309,6 @@ else
         StateHasChanged();
     }
 
-    public void Dispose()
-    {
-        _debounceTimer?.Dispose();
-    }
-
     private async Task HandleCreateComponent()
     {
         errorMessage = null;
@@ -324,7 +339,7 @@ else
             {
                 successMessage = $"Component '{newComponentDto.Name}' added successfully!";
                 newComponentDto = new CreateTrainComponentDto(); // Reset form
-                currentPage = 1; 
+                currentPage = 1;
                 await LoadComponents(); // Reload components to show the new one
             }
             else
@@ -391,4 +406,6 @@ else
             await LoadComponents();
         }
     }
+
+    #endregion
 }
